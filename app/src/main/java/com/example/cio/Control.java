@@ -36,10 +36,13 @@ import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
 import com.example.cio.WorkManager.CargaAsincrona;
 import com.example.cio.utilidades.DataConverter;
+import com.example.cio.utilidades.LogUtils;
 import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.vision.barcode.Barcode;
 
-import java.util.Arrays;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -54,12 +57,14 @@ public class Control extends AppCompatActivity {
     final static String TAG = "ControlActivity";
 
     public static ConstraintLayout dialogo;
-    public  static TextView tituloDialogo;
+    public static TextView tituloDialogo;
     public static TextView textoDialogo;
 
     public static ProgressBar progressDialogo;
 
     public static Button buttonDialogo;
+
+    public static TextView fechaCarga;
 
     ImageView imgLogo;
     ImageView imgVehiculo, imgConductor,imgPasajeros;
@@ -70,7 +75,7 @@ public class Control extends AppCompatActivity {
     TextView lblCargo;
     TextView textoAyuda;
     EditText txtEscanear;
-    Button btnCamara,btnActualiza,btnTeclado,btnCerrar,btnPanel,btnTeclado2,btnCamara2;
+    Button btnCamara,btnTeclado,btnCerrar,btnPanel,btnTeclado2,btnCamara2;
     TableLayout tablaTeclado;
     Button button;
     ConstraintLayout dialogoV, resultadoVehi, resultadoCho,constraintTable, constraintVehiculo, constraintImageVehiculo;
@@ -86,6 +91,8 @@ public class Control extends AppCompatActivity {
     Vibrator vibrator;
 
     String tipoControl;
+
+    String fechaCargatxt = "";
     Long idGrupal,idGrupalRechaza;
     Boolean hayResultadoChofer = false;
     String tipoVehiculo;
@@ -107,7 +114,6 @@ public class Control extends AppCompatActivity {
             CFGwsVehiculos,
             CFGhabilitar_camara;
 
-    private static Bitmap bmpLogo = null;
     RequestQueue rq = null;
 
     MediaPlayer mP = null;
@@ -125,14 +131,14 @@ public class Control extends AppCompatActivity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_control);
-        conn = new ConexionSQLiteHelper(this, "DB_CIO", null, 1);
+        conn = new ConexionSQLiteHelper(this, "DB_CIO", null, 3);
 
         dialogo = findViewById(R.id.fondoOscuro);
         tituloDialogo = findViewById(R.id.tituloDialog);
         textoDialogo = findViewById(R.id.textoDialog);
         progressDialogo = findViewById(R.id.progressDialgo);
         buttonDialogo = findViewById(R.id.butonDialog);
-
+        fechaCarga = findViewById(R.id.lblInfoCarga);
         imgLogo = findViewById(R.id.imgLogo);
         imgVehiculo = findViewById(R.id.ImagenVehiculo);
         imgConductor = findViewById(R.id.ImagenChofer);
@@ -147,7 +153,6 @@ public class Control extends AppCompatActivity {
         lblTitulo = findViewById(R.id.lblTitulo);
         txtEscanear = findViewById(R.id.txtEscanear);
         btnCamara = findViewById(R.id.btnCamara);
-        btnActualiza = findViewById(R.id.btnSincronizar);
         btnTeclado = findViewById(R.id.btnTeclado);
         btnTeclado2 = findViewById(R.id.btnTeclado2);
         btnCamara2 = findViewById(R.id.btnCamara2);
@@ -192,6 +197,8 @@ public class Control extends AppCompatActivity {
         Bundle bundle = this.getIntent().getExtras();
         if(bundle != null){
             tipoControl = bundle.getString("destino");
+            fechaCargatxt = bundle.getString("carga");
+            fechaCarga.setText(fechaCargatxt);
             formatoTipoControl();
         }
 
@@ -239,7 +246,7 @@ public class Control extends AppCompatActivity {
             CFGhabilitar_camara = cursor.getString(13);
 
             if (CFGimage_logo != null) {
-                bmpLogo = DataConverter.convertByteArray2Image(CFGimage_logo);
+                Bitmap bmpLogo = DataConverter.convertByteArray2Image(CFGimage_logo);
                 imgLogo.setImageBitmap(bmpLogo);
             }
             if(CFGhabilitar_camara.equals("1")){
@@ -256,35 +263,26 @@ public class Control extends AppCompatActivity {
                 }
             }
         }
-        imgVehiculo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                tipoVehiculo = "vehiculo";
-                btnPanel.setVisibility(View.GONE);
-                btnCerrar.setVisibility(View.GONE);
+        imgVehiculo.setOnClickListener(v -> {
+            tipoVehiculo = "vehiculo";
+            btnPanel.setVisibility(View.GONE);
+            btnCerrar.setVisibility(View.GONE);
+            formulario();
+        });
+        imgConductor.setOnClickListener(v -> {
+            if(idGrupal!=null){
+                tipoVehiculo = "conductor";
                 formulario();
+            }else{
+                Toast.makeText(Control.this,"Debe ingresar el vehiculo primero",Toast.LENGTH_LONG).show();
             }
         });
-        imgConductor.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(idGrupal!=null){
-                    tipoVehiculo = "conductor";
-                    formulario();
-                }else{
-                    Toast.makeText(Control.this,"Debe ingresar el vehiculo primero",Toast.LENGTH_LONG).show();
-                }
-            }
-        });
-        imgPasajeros.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(idGrupal!=null){
-                    tipoVehiculo = "pasajeros";
-                    formulario();
-                }else{
-                    Toast.makeText(Control.this,"Debe ingresar el vehiculo primero",Toast.LENGTH_LONG).show();
-                }
+        imgPasajeros.setOnClickListener(v -> {
+            if(idGrupal!=null){
+                tipoVehiculo = "pasajeros";
+                formulario();
+            }else{
+                Toast.makeText(Control.this,"Debe ingresar el vehiculo primero",Toast.LENGTH_LONG).show();
             }
         });
         txtEscanear.requestFocus();
@@ -299,12 +297,8 @@ public class Control extends AppCompatActivity {
         };
         Timer timer = new Timer();
         timer.schedule(task,250);
-        buttonDialogo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                dialogo.setVisibility(View.INVISIBLE);
-            }
-        });
+        buttonDialogo.setOnClickListener(view -> dialogo.setVisibility(View.INVISIBLE));
+        cursor.close();
     }
     @Override protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if(requestCode == 0){
@@ -361,7 +355,7 @@ public class Control extends AppCompatActivity {
         btnCerrar.setVisibility(View.GONE);
         btnTeclado2.setVisibility(View.GONE);
         btnCamara2.setVisibility(View.GONE);
-        Log.i(TAG,"El tipo de comtrol es "+tipoControl);
+        LogUtils.LOGI(TAG,"El tipo de comtrol es "+tipoControl);
         switch(tipoControl){
             case "salidasVehicular":
                 lblTitulo.setText(R.string.control_sal_vec);
@@ -369,7 +363,6 @@ public class Control extends AppCompatActivity {
                 txtEscanear.setVisibility(View.GONE);
                 textoAyuda.setVisibility(View.GONE);
                 btnCamara.setVisibility(View.GONE);
-                btnActualiza.setVisibility(View.GONE);
                 btnTeclado.setVisibility(View.GONE);
                 imgVehiculo.setVisibility(View.VISIBLE);
                 imgConductor.setVisibility(View.VISIBLE);
@@ -383,8 +376,8 @@ public class Control extends AppCompatActivity {
                 txtEscanear.setVisibility(View.GONE);
                 textoAyuda.setVisibility(View.GONE);
                 btnCamara.setVisibility(View.GONE);
-                btnActualiza.setVisibility(View.GONE);
                 btnTeclado.setVisibility(View.GONE);
+                fechaCarga.setVisibility(View.GONE);
                 imgVehiculo.setVisibility(View.VISIBLE);
                 imgConductor.setVisibility(View.VISIBLE);
                 imgPasajeros.setVisibility(View.VISIBLE);
@@ -398,9 +391,8 @@ public class Control extends AppCompatActivity {
                 textoAyuda.setVisibility(View.VISIBLE);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.azulControlandoIngresos));
+                lblTitulo.setTextColor(ContextCompat.getColor(this, R.color.azulControlandoIngresos));
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
                 imgPasajeros.setVisibility(View.GONE);
@@ -413,9 +405,8 @@ public class Control extends AppCompatActivity {
                 txtEscanear.setHint(R.string.texto_escaner_persona);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.rojoControlandoSalida));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.rojoControlandoSalida));
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
                 imgPasajeros.setVisibility(View.GONE);
@@ -429,7 +420,6 @@ public class Control extends AppCompatActivity {
                 textoAyuda.setVisibility(View.VISIBLE);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -437,7 +427,7 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.azulControlandoIngresos));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.azulControlandoIngresos));
                 break;
             case "salidasvisitas":
                 lblTitulo.setText(R.string.control_salida_visitas);
@@ -445,7 +435,6 @@ public class Control extends AppCompatActivity {
                 textoAyuda.setVisibility(View.VISIBLE);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -453,7 +442,7 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.rojoControlandoVisitas));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.rojoControlandoVisitas));
                 break;
             case "ingresostecnica":
                 lblTitulo.setText(R.string.control_tecnica_ent);
@@ -461,7 +450,6 @@ public class Control extends AppCompatActivity {
                 textoAyuda.setVisibility(View.VISIBLE);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -469,7 +457,7 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.azulControlandoIngresos));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.azulControlandoIngresos));
                 break;
             case "salidastecnica":
                 lblTitulo.setText(R.string.control_tecnica_sal);
@@ -477,7 +465,6 @@ public class Control extends AppCompatActivity {
                 textoAyuda.setVisibility(View.VISIBLE);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -485,14 +472,13 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.rojoControlandoVisitas));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.rojoControlandoVisitas));
                 break;
             case "ingresosgrupal":
                 lblTitulo.setText(R.string.control_grupal_ent);
                 txtEscanear.setHint(R.string.texto_escaner_persona);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -500,14 +486,13 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.azulControlandoIngresos));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.azulControlandoIngresos));
                 break;
             case "ingresostransportista":
                 lblTitulo.setText(R.string.control_fletes_ent);
                 txtEscanear.setHint(R.string.texto_escaner_persona);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -515,14 +500,13 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.azulControlandoIngresos));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.azulControlandoIngresos));
                 break;
             case "salidasgrupal":
                 lblTitulo.setText(R.string.control_grupal_sal);
                 txtEscanear.setHint(R.string.texto_escaner_persona);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -530,14 +514,13 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.rojoControlandoSalida));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.rojoControlandoSalida));
                 break;
             case "salidastransportista":
                 lblTitulo.setText(R.string.control_fletes_sal);
                 txtEscanear.setHint(R.string.texto_escaner_persona);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -545,7 +528,7 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.rojoControlandoSalida));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.rojoControlandoSalida));
                 break;
             case "emergencia":
                 lblTitulo.setText(R.string.control_emergencia);
@@ -553,7 +536,6 @@ public class Control extends AppCompatActivity {
                 textoAyuda.setVisibility(View.VISIBLE);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -561,7 +543,7 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.rojoControlandoVisitas));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.rojoControlandoVisitas));
                 break;
             case "licencias":
                 lblTitulo.setText(R.string.control_licencia);
@@ -569,7 +551,6 @@ public class Control extends AppCompatActivity {
                 textoAyuda.setVisibility(View.VISIBLE);
                 textoAyuda.setVisibility(View.VISIBLE);
                 btnCamara.setVisibility(View.VISIBLE);
-                btnActualiza.setVisibility(View.VISIBLE);
                 btnTeclado.setVisibility(View.VISIBLE);
                 imgVehiculo.setVisibility(View.GONE);
                 imgConductor.setVisibility(View.GONE);
@@ -577,7 +558,7 @@ public class Control extends AppCompatActivity {
                 txtVehiculo.setVisibility(View.GONE);
                 txtConductor.setVisibility(View.GONE);
                 txtPasajeros.setVisibility(View.GONE);
-                lblTitulo.setTextColor(getResources().getColor(R.color.rojoControlandoVisitas));
+                lblTitulo.setTextColor(ContextCompat.getColor(this,R.color.rojoControlandoVisitas));
                 break;
         }
     }
@@ -788,6 +769,27 @@ public class Control extends AppCompatActivity {
         }
     }
     public void onclickPanelCentral(View view) {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
+        Date fecha1,fecha2;
+        try{
+            String[] tes1 = fechaCargatxt.split(":");
+            String[] tes2 = fechaCarga.getText().toString().split(":");
+            if(tes1.length>2 && tes2.length>2){
+                fecha1 = sdf.parse(tes1[1].trim()+":"+tes1[2]);
+                fecha2 = sdf.parse(tes2[1].trim()+":"+tes2[2]);
+                assert fecha1 != null;
+                if(fecha1.equals(fecha2)){
+                    LogUtils.LOGI(TAG, "Fecha 1 es igual a fecha2" );
+                }else if(fecha1.after(fecha2)){
+                    LogUtils.LOGI(TAG, "Fecha 1 es mayor a fecha2" );
+                }else if(fecha1.before(fecha2)){
+                    LogUtils.LOGI(TAG, "Fecha 1 es menor a fecha2" );
+                    MainActivity.fechaCarga.setText("Ultima Carga : "+fecha2.toString());
+                }
+            }
+        }catch (Exception e){
+            Log.e(TAG, Objects.requireNonNull(e.getMessage()));
+        }
         finish();
     }
     public void onclickCerrar(View view) {
@@ -904,15 +906,11 @@ public class Control extends AppCompatActivity {
     /*PROCESO VEHICULO*/
     private void procesarPatente(String patente) {
         try {
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             ocultarTecladoVirtual();
             SQLiteDatabase db = conn.getReadableDatabase();
             String[] campos,
@@ -948,6 +946,7 @@ public class Control extends AppCompatActivity {
                 resultadoVehiculo.setTextColor(getResources().getColor(R.color.green_success));
                 button.setText("AUTORIZADO");
                 button.setBackground(getDrawable(R.drawable.afirmativo));
+                cursor2.close();
             } else {
                 resultadoPatente.setText(patente.toUpperCase());
                 resultadoVehiculo.setText("DENEGADO");
@@ -980,15 +979,11 @@ public class Control extends AppCompatActivity {
     private void procesarChofer(String rut) {
         ocultarTecladoVirtual();
         try {
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             SQLiteDatabase db = conn.getReadableDatabase();
             String[] campos,
                     parametros;
@@ -1009,7 +1004,7 @@ public class Control extends AppCompatActivity {
                 cursor.moveToFirst();
                 if (!fecha1MayorQueFecha2(TIMESTAMPdate(), cursor.getString(3)) || cursor.getString(3).equals("0000-00-00")) { //si fecha_vencimiento licencia no ha pasado
                     //si fecha restriccion licencia ya paso o simplemente no tiene restriccion
-                    if (ifN(cursor.getString(4)).equals("") || ifN(cursor.getString(4)).equals("0000-00-00") || (!fecha1MayorQueFecha2(cursor.getString(4), TIMESTAMPdate()) && !cursor.getString(4).equals(TIMESTAMPdate()))) {
+                    if (ifN(cursor.getString(4)).isEmpty() || ifN(cursor.getString(4)).equals("0000-00-00") || (!fecha1MayorQueFecha2(cursor.getString(4), TIMESTAMPdate()) && !cursor.getString(4).equals(TIMESTAMPdate()))) {
                         campos = new String[]{"NOMBRE", "APELLIDO", "CARGO", "EMPRESA","id","ESTADO"};
                         parametros = new String[]{rut.toLowerCase()};
                         cursor2 = db.query("personal", campos, "LOWER(RUT) = ?", parametros, null, null, null);
@@ -1035,6 +1030,7 @@ public class Control extends AppCompatActivity {
                             resultadoCho.setVisibility(View.VISIBLE);
                             dialogoV.setVisibility(View.GONE);
                             registrarCapturaPasajeros(idGrupal,ifN(rut, null), idPer, isNumeric(personal.getString(2)) ? motivoRechazo(Integer.parseInt(personal.getString(2))) : personal.getString(2), "1", tipo_c, ifN(TIMESTAMP(), null));
+                            personal.close();
                         }else{
                             rechazoChofer(ifN(rut, null),tipo_c,"No se encuentra en Sistema");
                         }
@@ -1069,7 +1065,7 @@ public class Control extends AppCompatActivity {
         resultadoCho.setVisibility(View.VISIBLE);
         dialogoV.setVisibility(View.GONE);
         registrarCapturaPasajeros(idGrupal,rut,rut,motivo, "1", tipo, ifN(TIMESTAMP(), null));
-        if (tipo == "1") {
+        if (Objects.equals(tipo, "1")) {
             mP = MediaPlayer.create(getApplicationContext(), R.raw.licenciarechazo);
         }else{
             mP = MediaPlayer.create(getApplicationContext(), R.raw.registrandosalida);
@@ -1078,15 +1074,11 @@ public class Control extends AppCompatActivity {
     }
     private void procesarPasajero(String rut) {
         try {
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             ocultarTecladoVirtual();
             txtEscanear.setText("");
 
@@ -1149,6 +1141,7 @@ public class Control extends AppCompatActivity {
                     }
                     registrarCapturaPasajeros(idGrupal,ifN(rut, null),cursor.getString(4),isNumeric(cursor.getString(5)) ? motivoRechazo(Integer.parseInt(cursor.getString(5))) : cursor.getString(5), "2", "1", ifN(TIMESTAMP(), null));
                 }
+                cursor2.close();
             } else {
                 button.setText("DENEGADO");
                 button.setBackground(getDrawable(R.drawable.negativo));
@@ -1195,18 +1188,24 @@ public class Control extends AppCompatActivity {
             for (; rutAux != 0; rutAux /= 10) s = (s + rutAux % 10 * (9 - m++ % 6)) % 11;
             if (dv == (char) (s != 0 ? s + 47 : 75)) resultado = true;
         } catch (Exception e) {
+            LogUtils.LOGE(TAG, e.getMessage());
         }
         return resultado;
     }
     private String filtrarRut(String rut){
         String soloRut = rut;
-
         //filtrar qr cédula de identidad nueva chilena
-        Log.i(TAG,"el resultado de index.of "+rut.toLowerCase().indexOf("https://portal.sidiv"));
-        if (rut.toLowerCase().indexOf("https://portal.sidiv") == 0) soloRut = rut.substring(52, 62);
-        //5555555566666666667
-        //2345678901234567890
-        //18540458-7
+        if (rut.toLowerCase().indexOf("https://portal.sidiv") == 0){
+            soloRut = rut.substring(52, 62);
+            if (soloRut.contains("&")){
+                soloRut = soloRut.substring(0,9);
+            }
+        } else if (rut.toLowerCase().indexOf("https://portal.nuevosidiv") == 0) {
+            soloRut = rut.substring(65, 75);
+            if (soloRut.contains("&")){
+                soloRut = soloRut.substring(0,9);
+            }
+        }
         soloRut = soloRut.toUpperCase().trim();
         soloRut = soloRut.replace(".", "");
         soloRut = soloRut.replace("-", "");
@@ -1214,17 +1213,12 @@ public class Control extends AppCompatActivity {
         return soloRut;
     }
     private void procesarRut(String rut) {
-        Log.i(TAG,"el rut es "+rut);
         try {
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             ocultarTecladoVirtual();
             txtEscanear.setText("");
 
@@ -1298,6 +1292,7 @@ public class Control extends AppCompatActivity {
                         registrarRechazoVisita(0,2,"2","Pase sin vigencia",ifN(CFGid_app, null),ifN(TIMESTAMP(), null));
                         mP = MediaPlayer.create(getApplicationContext(), R.raw.accesodenegado);
                     }
+                    cursor2.close();
                     mP.start();
                     break;
                 case "salidastecnica":
@@ -1321,14 +1316,13 @@ public class Control extends AppCompatActivity {
                         registrarRechazoVisita(0,1,"2","Pase sin vigencia",ifN(CFGid_app, null),ifN(TIMESTAMP(), null));
                         mP = MediaPlayer.create(getApplicationContext(), R.raw.accesodenegado);
                     }
+                    cursor2.close();
                     mP.start();
                     break;
                 case "ingresos":
-                    campos = new String[]{"NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "ID_PERSONA"};
+                    campos = new String[]{"NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "ID_PERSONA","FECHA_CARGA"};
                     parametros = new String[]{rut.toLowerCase(),"2"};
-                    Log.i(TAG, Arrays.toString(parametros));
                     cursor = db.query("personal", campos, "LOWER(RUT) = ? AND ESTADO = ? AND TERMINO_CONTRATO >= CURRENT_DATE", parametros, null, null, null);
-                    Log.i(TAG,cursor.toString());
                     if (cursor.getCount() > 0) {
                         cursor.moveToFirst();
                         //validar que no se repitan los ingresos de la misma persona
@@ -1348,9 +1342,10 @@ public class Control extends AppCompatActivity {
                             lblResultado.setTextColor(getResources().getColor(R.color.green_success));
                             lblNombre.setText(cursor.getString(0) + " " + cursor.getString(1));
                             lblCargo.setText(cursor.getString(3));
-                            registrarCapturaPersonal(rut, ifN(cursor.getString(4), null), ifN(cursor.getString(0), null), ifN(cursor.getString(1), null), ifN(cursor.getString(2), null), ifN(cursor.getString(3), null), ifN("1", null), ifN(CFGid_app, null), ifN(TIMESTAMP(), null));
+                            registrarCapturaPersonal(rut, ifN(cursor.getString(4), null), ifN(cursor.getString(0), null), ifN(cursor.getString(1), null), ifN(cursor.getString(2), null), ifN(cursor.getString(3), null), ifN("1", null), ifN(CFGid_app, null), ifN(TIMESTAMP(), null),ifN(cursor.getString(5), null));
                             mP = MediaPlayer.create(getApplicationContext(), R.raw.accesopermitido);
                         }
+                        cursor2.close();
                     } else {
                         lblResultado.setText("DENEGADO");
                         lblResultado.setTextColor(getResources().getColor(R.color.red_danger));
@@ -1370,7 +1365,7 @@ public class Control extends AppCompatActivity {
                     mP.start();
                     break;
                 case "salidas":
-                    campos = new String[]{"NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "ID_PERSONA"};
+                    campos = new String[]{"NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "ID_PERSONA", "FECHA_CARGA"};
                     parametros = new String[]{rut.toLowerCase(),"2"};
                     cursor = db.query("personal", campos, "LOWER(RUT) = ? AND ESTADO = ?", parametros, null, null, null);
                     if (cursor.getCount() > 0) {
@@ -1392,9 +1387,10 @@ public class Control extends AppCompatActivity {
                             lblResultado.setTextColor(getResources().getColor(R.color.green_success));
                             lblNombre.setText(cursor.getString(0) + " " + cursor.getString(1));
                             lblCargo.setText(cursor.getString(3));
-                            registrarCapturaPersonal(rut, ifN(cursor.getString(4), null), ifN(cursor.getString(0), null), ifN(cursor.getString(1), null), ifN(cursor.getString(2), null), ifN(cursor.getString(3), null), ifN("2", null), ifN(CFGid_app, null), ifN(TIMESTAMP(), null));
+                            registrarCapturaPersonal(rut, ifN(cursor.getString(4), null), ifN(cursor.getString(0), null), ifN(cursor.getString(1), null), ifN(cursor.getString(2), null), ifN(cursor.getString(3), null), ifN("2", null), ifN(CFGid_app, null), ifN(TIMESTAMP(), null), cursor.getString(5));
                             mP = MediaPlayer.create(getApplicationContext(), R.raw.seharegistradosalida);
                         }
+                        cursor2.close();
                     } else {
                         lblResultado.setText("DENEGADO");
                         lblResultado.setTextColor(getResources().getColor(R.color.red_danger));
@@ -1666,26 +1662,27 @@ public class Control extends AppCompatActivity {
                                             cargo = personal.getString(0);
                                         }
                                     }
+                                    personal.close();
                                 }
                                 if(cursor.getString(7) != null) {
-                                    if (!cursor.getString(7).equals("")) {
+                                    if (!cursor.getString(7).isEmpty()) {
                                         cargo += ((cargo.isEmpty()) ? "" : "\n") + "Faenas Autorizadas: " + cursor.getString(7);
                                     }
                                 }
                                 if(cursor.getString(2) != null) {
-                                    if (!cursor.getString(2).equals("")) {
+                                    if (!cursor.getString(2).isEmpty()) {
                                         String[] licencias = cursor.getString(2).split(",");
-                                        String tiposLicencias = "";
+                                        StringBuilder tiposLicencias = new StringBuilder();
                                         for (int i = 0; i < licencias.length; i++) {
                                             String traduccion = "";
                                             traduccion = formatoLicencia(licencias[i].trim().toLowerCase());
-                                            tiposLicencias += ((tiposLicencias.isEmpty()) ? "" : ", ") + traduccion;
+                                            tiposLicencias.append((tiposLicencias.length() == 0) ? "" : ", ").append(traduccion);
                                         }
                                         cargo += ((cargo.isEmpty()) ? "" : "\n") + "Licencias Autorizadas: " + tiposLicencias;
                                     }
                                 }
                                 if(cursor.getString(6) != null) {
-                                    if (!cursor.getString(6).equals("")) {
+                                    if (!cursor.getString(6).isEmpty()) {
                                         cargo += ((cargo.isEmpty()) ? "" : "\n") + "Observación: " + cursor.getString(6);
                                     }
                                 }
@@ -1728,19 +1725,20 @@ public class Control extends AppCompatActivity {
                         mP = MediaPlayer.create(getApplicationContext(), R.raw.accesodenegado);
                     }
                     mP.start();
+                    cursor.close();
                     break;
             }
             db.close();
-            cursor.close();
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG, e.getMessage());
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
-    private void registrarCapturaPersonal(String RUT, String ID_PERSONA, String NOMBRE, String APELLIDO, String CARGO, String EMPRESA, String TIPO_CAPTURA, String NOMBRE_DISPOSITIVO, String FECHA_CAPTURA) {
+    private void registrarCapturaPersonal(String RUT, String ID_PERSONA, String NOMBRE, String APELLIDO, String CARGO, String EMPRESA, String TIPO_CAPTURA, String NOMBRE_DISPOSITIVO, String FECHA_CAPTURA, String FECHA_CARGA) {
         SQLiteDatabase db = conn.getWritableDatabase();
+        LogUtils.LOGI(TAG, "la fcha de carga es "+FECHA_CARGA);
         db.execSQL(
-            "INSERT INTO personalCapturado(RUT, ID_PERSONA, NOMBRE, APELLIDO, CARGO, EMPRESA, TIPO_CAPTURA, NOMBRE_DISPOSITIVO, FECHA_CAPTURA) " +
+            "INSERT INTO personalCapturado(RUT, ID_PERSONA, NOMBRE, APELLIDO, CARGO, EMPRESA, TIPO_CAPTURA, NOMBRE_DISPOSITIVO, FECHA_CAPTURA, FECHA_CARGA) " +
                     " VALUES(" + ifN(RUT, "NULL", VRCHR) +
                     ", " + ifN(ID_PERSONA,"NULL", VRCHR) +
                     ", " + ifN(NOMBRE,"NULL", VRCHR) +
@@ -1749,7 +1747,9 @@ public class Control extends AppCompatActivity {
                     ", " + ifN(EMPRESA,"NULL", VRCHR) +
                     ", " + ifN(TIPO_CAPTURA,"NULL", VRCHR) +
                     ", " + ifN(NOMBRE_DISPOSITIVO,"NULL", VRCHR) +
-                    ", " + ifN(FECHA_CAPTURA,"NULL", VRCHR) + ")"
+                    ", " + ifN(FECHA_CAPTURA,"NULL", VRCHR) +
+                    ", " + ifN(FECHA_CARGA,"NULL", VRCHR) +
+                    ")"
         );
         db.close();
     }
@@ -1932,7 +1932,7 @@ public class Control extends AppCompatActivity {
     }
     public static boolean isNumeric(String s)
     {
-        if (s == null || s.equals("")) {
+        if (s == null || s.isEmpty()) {
             return false;
         }
         return s.chars().allMatch(Character::isDigit);

@@ -4,13 +4,11 @@ import static com.example.cio.utilidades.Utilidades.VRCHR;
 import static com.example.cio.utilidades.Utilidades.ifN;
 
 import android.content.Context;
-import android.content.DialogInterface;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.View;
 
 import com.android.volley.AuthFailureError;
@@ -27,18 +25,14 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.Calendar;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 public class CargarDescarga {
     final static String TAG = "CargarDescarga";
-
-    Calendar cal = Calendar.getInstance();
-
     ConexionSQLiteHelper conn;
 
     String CFGid_app,
@@ -76,7 +70,9 @@ public class CargarDescarga {
 
     RequestQueue rq;
 
-    int clase = 0;
+    int clase;
+
+    SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
 
     public CargarDescarga(ConexionSQLiteHelper conexionSQLiteHelper, Context context, int tipo){
         clase = tipo;
@@ -172,22 +168,31 @@ public class CargarDescarga {
 
         sync();
     }
-    public void terminoTarea() {
+    public void terminoTarea(int problem) {
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
+                long millis = System.currentTimeMillis();
+                Date resultdate = new Date(millis);
+                String dateString=sdf.format(resultdate);
                 if(clase == 1){
                     MainActivity.dialogo.setVisibility(View.VISIBLE);
-                    MainActivity.tituloDialogo.setText("Actualización Exitosa");
-                    MainActivity.textoDialogo.setText("Presione en Cerrar para salir.");
+                    if(problem == 0){
+                        MainActivity.tituloDialogo.setText("Actualización Exitosa");
+                    }else{
+                        MainActivity.tituloDialogo.setText("Error al actualizar");
+                    }
+                    MainActivity.textoDialogo.setText("Presione Cerrar para salir.");
                     MainActivity.progressDialogo.setVisibility(View.INVISIBLE);
                     MainActivity.buttonDialogo.setVisibility(View.VISIBLE);
+                    MainActivity.fechaCarga.setText("Última Carga : "+dateString);
                 }else{
                     Control.dialogo.setVisibility(View.VISIBLE);
                     Control.tituloDialogo.setText("Actualización Exitosa");
-                    Control.textoDialogo.setText("Presione en Cerrar para salir.");
+                    Control.textoDialogo.setText("Presione Cerrar para salir.");
                     Control.progressDialogo.setVisibility(View.INVISIBLE);
                     Control.buttonDialogo.setVisibility(View.VISIBLE);
+                    Control.fechaCarga.setText("Última Carga : "+dateString);
                 }
 
             }
@@ -242,7 +247,9 @@ public class CargarDescarga {
                 }
             });
             long millis = System.currentTimeMillis();
-            Log.i(TAG, "Comienza la carga en "+ TimeUnit.MILLISECONDS.toSeconds(millis));
+            Date resultdate = new Date(millis);
+            String dateString=sdf.format(resultdate);
+            LogUtils.LOGI(TAG, "Comienza la carga en "+ dateString);
             descargarPersonal();
         }
 
@@ -250,9 +257,10 @@ public class CargarDescarga {
     public void descargarPersonal(){
         try {
             Map<String, String> parametros = new Hashtable<String, String>();
+            LogUtils.LOGI(TAG, CFGwsInternoExterno);
             StringRequest stringRequest = new StringRequest(Request.Method.GET, CFGwsInternoExterno,
                     response -> {
-                Log.i(TAG,"La cantidad de personas cargados son "+poblarPersonal(html2HashtablePersonal(response)));
+                        LogUtils.LOGI(TAG,"La cantidad de personas cargados son "+poblarPersonal(html2HashtablePersonal(response)));
                         descargarVehiculos();
                     },
                     error -> {
@@ -266,7 +274,7 @@ public class CargarDescarga {
             };
             rq.add(stringRequest);
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
     }
     public Hashtable<Integer, Hashtable<String, String>> html2HashtablePersonal(String texto){
@@ -289,7 +297,7 @@ public class CargarDescarga {
                 personal.put(i, g);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
         return personal;
     }
@@ -302,31 +310,33 @@ public class CargarDescarga {
             db.execSQL(Utilidades.CREAR_TABLA_PERSONAL);
 
             //insertar personal
-            Iterator<Map.Entry<Integer, Hashtable<String, String>>> it = personal.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<Integer, Hashtable<String, String>> entry = it.next();
+            for (Map.Entry<Integer, Hashtable<String, String>> entry : personal.entrySet()) {
                 Hashtable<String, String> gs = entry.getValue();
+                long millis = System.currentTimeMillis();
+                Date resultdate = new Date(millis);
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                String dateString = sdf.format(resultdate);
                 db.execSQL(
-                        "INSERT INTO personal(ID_PERSONA, RUT, NOMBRE, APELLIDO, CARGO, EMPRESA, ESTADO, CONTRATO, INICIO_CONTRATO, TERMINO_CONTRATO, ID_EMPRESA) " +
-                                "              VALUES(" + ifN(gs.get("ID_PERSONA"),"NULL", VRCHR) +
-                                ", " + ifN(gs.get("RUT"),"NULL", VRCHR) +
-                                ", " + ifN(gs.get("NOMBRE"),"NULL", VRCHR) +
-                                ", " + ifN(gs.get("APELLIDO"),"NULL", VRCHR) +
-                                ", " + ifN(gs.get("CARGO"),"NULL", VRCHR) +
-                                ", " + ifN(gs.get("EMPRESA"),"NULL", VRCHR) +
+                        "INSERT INTO personal(ID_PERSONA, RUT, NOMBRE, APELLIDO, CARGO, EMPRESA, ESTADO, CONTRATO, INICIO_CONTRATO, TERMINO_CONTRATO, ID_EMPRESA, FECHA_CARGA) " +
+                                "              VALUES(" + ifN(gs.get("ID_PERSONA"), "NULL", VRCHR) +
+                                ", " + ifN(gs.get("RUT"), "NULL", VRCHR) +
+                                ", " + ifN(gs.get("NOMBRE"), "NULL", VRCHR) +
+                                ", " + ifN(gs.get("APELLIDO"), "NULL", VRCHR) +
+                                ", " + ifN(gs.get("CARGO"), "NULL", VRCHR) +
+                                ", " + ifN(gs.get("EMPRESA"), "NULL", VRCHR) +
                                 ", " + ifN(gs.get("ESTADO"), "NULL", VRCHR) +
                                 ", " + ifN(gs.get("CONTRATO"), "NULL", VRCHR) +
                                 ", " + ifN(gs.get("INICIO_CONTRATO"), "NULL", VRCHR) +
                                 ", " + ifN(gs.get("TERMINO_CONTRATO"), "NULL", VRCHR) +
                                 ", " + ifN(gs.get("ID_EMPRESA"), "NULL", VRCHR) +
+                                ", " + ifN(dateString, "NULL", VRCHR) +
                                 ")"
                 );
                 contadorPersonal++;
             }
-            //Toast.makeText(this, "personal bajado: " + contadorPersonal, Toast.LENGTH_SHORT).show();
             db.close();
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
         return String.valueOf(contadorPersonal);
     }
@@ -340,8 +350,8 @@ public class CargarDescarga {
                         descargarVisitaAdminis();
                     },
                     error -> {
-                        //System.out.println("Error en respuesta de vehiculos "+error );
                         sincronizacionUnlock();
+                        LogUtils.LOGE(TAG,error.toString());
                     }
             ) {
                 @Override
@@ -352,7 +362,7 @@ public class CargarDescarga {
             stringRequest.setRetryPolicy(new DefaultRetryPolicy(20000,DefaultRetryPolicy.DEFAULT_MAX_RETRIES,DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
             rq.add(stringRequest);
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
     }
     public void poblarVehiculos(Hashtable<Integer, Hashtable<String, String>> vehiculo){
@@ -383,9 +393,9 @@ public class CargarDescarga {
             //Toast.makeText(this, "personal bajado: " + contadorPersonal, Toast.LENGTH_SHORT).show();
             db.close();
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
-        System.out.println("La cantidad de vehiculos cargados son "+contadorVehiculos);
+        LogUtils.LOGI(TAG,"La cantidad de vehiculos cargados son "+contadorVehiculos);
     }
     public Hashtable<Integer, Hashtable<String, String>> html2HashtableVehiculos(String texto){
         Hashtable<Integer, Hashtable<String, String>> vehiculo = new Hashtable<Integer, Hashtable<String, String>>();
@@ -393,7 +403,7 @@ public class CargarDescarga {
             JSONArray jsonArray = new JSONArray(texto);
             for(int i = 0; i < jsonArray.length(); i++){
                 JSONObject jsonObject = jsonArray.getJSONObject(i);
-                Hashtable<String, String> g = new Hashtable<String, String>();
+                Hashtable<String, String> g = new Hashtable<>();
                 g.put("ID_VEHICULO", ((!jsonObject.getString("ID_VEHICULO").equalsIgnoreCase("null"))?jsonObject.getString("ID_VEHICULO"):""));
                 g.put("PATENTE", ((!jsonObject.getString("PATENTE").equalsIgnoreCase("null"))?jsonObject.getString("PATENTE"):""));
                 g.put("MARCA", ((!jsonObject.getString("MARCA").equalsIgnoreCase("null"))?jsonObject.getString("MARCA"):""));
@@ -404,22 +414,22 @@ public class CargarDescarga {
                 vehiculo.put(i, g);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
         return vehiculo;
     }
     public void descargarVisitaAdminis(){
-        System.out.println("URL para visita administrativa "+CFGwsVisitas);
+        LogUtils.LOGI(TAG,"URL para visita administrativa "+CFGwsVisitas);
         try {
             Map<String, String> parametros = new Hashtable<String, String>();
             //parametros.put("accion", "descargar-ggss");
             StringRequest stringRequest = new StringRequest(Request.Method.GET, CFGwsVisitas,
                     response -> {
-                        poblarVisitaAdminis(html2HashtableVisitaAdminis(response));
+                        LogUtils.LOGI(TAG,"La cantidad de personas cargados son "+poblarVisitaAdminis(html2HashtableVisitaAdminis(response)));
                         descargarVisitaTecnica();
                     },
                     error -> {
-                        //System.out.println("Error en respuesta de vehiculos "+error );
+                        LogUtils.LOGE(TAG,error.toString());
                         sincronizacionUnlock();
                     }
             ) {
@@ -431,7 +441,7 @@ public class CargarDescarga {
             stringRequest.setRetryPolicy(new DefaultRetryPolicy(20000,DefaultRetryPolicy.DEFAULT_MAX_RETRIES,DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
             rq.add(stringRequest);
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
     }
     public String poblarVisitaAdminis(Hashtable<Integer, Hashtable<String, String>> visitaTecnica){
@@ -456,9 +466,9 @@ public class CargarDescarga {
             //Toast.makeText(this, "personal bajado: " + contadorPersonal, Toast.LENGTH_SHORT).show();
             db.close();
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
-        System.out.println("La cantidad de visita adminis son "+contadorVisita);
+        LogUtils.LOGI(TAG,"La cantidad de visita adminis son "+contadorVisita);
         return String.valueOf(contadorVisita);
     }
     public Hashtable<Integer, Hashtable<String, String>> html2HashtableVisitaAdminis(String texto){
@@ -467,7 +477,7 @@ public class CargarDescarga {
             JSONArray jsonArray = new JSONArray(texto);
             for(int i = 0; i < jsonArray.length(); i++){
                 JSONObject jsonObject = jsonArray.getJSONObject(i);
-                Hashtable<String, String> g = new Hashtable<String, String>();
+                Hashtable<String, String> g = new Hashtable<>();
                 g.put("ID_REGISTRO_VISITA", ((!jsonObject.getString("ID_REGISTRO_VISITA").equalsIgnoreCase("null"))?jsonObject.getString("ID_REGISTRO_VISITA"):""));
                 g.put("RUT_EMPRESA", ((!jsonObject.getString("RUT_EMPRESA").equalsIgnoreCase("null"))?jsonObject.getString("RUT_EMPRESA"):""));
                 g.put("NOMBRE_EMPRESA", ((!jsonObject.getString("NOMBRE_EMPRESA").equalsIgnoreCase("null"))?jsonObject.getString("NOMBRE_EMPRESA"):""));
@@ -478,12 +488,12 @@ public class CargarDescarga {
                 visita.put(i, g);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
         return visita;
     }
     public void descargarVisitaTecnica(){
-        System.out.println("URL para visita tecnica "+CFGwsVisitaTecnica);
+        LogUtils.LOGI(TAG,"URL para visita tecnica "+CFGwsVisitaTecnica);
         try {
             Map<String, String> parametros = new Hashtable<String, String>();
             //parametros.put("accion", "descargar-ggss");
@@ -493,7 +503,7 @@ public class CargarDescarga {
                         descargarEspecialesGrupal();
                     },
                     error -> {
-                        //System.out.println("Error en respuesta de vehiculos "+error );
+                        LogUtils.LOGE(TAG,error.toString());
                         sincronizacionUnlock();
                     }
             ) {
@@ -505,7 +515,7 @@ public class CargarDescarga {
             stringRequest.setRetryPolicy(new DefaultRetryPolicy(20000,DefaultRetryPolicy.DEFAULT_MAX_RETRIES,DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
             rq.add(stringRequest);
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
     }
     public String poblarVisitaTecnica(Hashtable<Integer, Hashtable<String, String>> visitaTecnica){
@@ -530,9 +540,9 @@ public class CargarDescarga {
             //Toast.makeText(this, "personal bajado: " + contadorPersonal, Toast.LENGTH_SHORT).show();
             db.close();
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
-        System.out.println("La cantidad de visita tecnica son "+contadorVisitaTecnica);
+        LogUtils.LOGI(TAG,"La cantidad de visita tecnica son "+contadorVisitaTecnica);
         return String.valueOf(contadorVisitaTecnica);
     }
     public Hashtable<Integer, Hashtable<String, String>> html2HashtableVisitaTecnica(String texto){
@@ -552,12 +562,12 @@ public class CargarDescarga {
                 visita.put(i, g);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
         return visita;
     }
     public void descargarEspecialesGrupal() {
-        System.out.println("URL para visita grupal "+CFGwsGrupal);
+        LogUtils.LOGI(TAG,"URL para visita grupal "+CFGwsGrupal);
         try {
             Map<String, String> parametros = new Hashtable<String, String>();
             StringRequest stringRequest = new StringRequest(Request.Method.GET, CFGwsGrupal,
@@ -576,7 +586,7 @@ public class CargarDescarga {
             };
             rq.add(stringRequest);
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
     }
     public Hashtable<Integer, Hashtable<String, String>> html2HashtableEspecialesGrupal(String texto){
@@ -599,7 +609,7 @@ public class CargarDescarga {
                 transportistas.put(i, g);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
         return transportistas;
     }
@@ -625,9 +635,9 @@ public class CargarDescarga {
             //Toast.makeText(this, "transportista bajado: " + contadorTransportistas, Toast.LENGTH_SHORT).show();
             db.close();
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
-        System.out.println("La cantidad de visita grupal son "+contadorGrupal);
+        LogUtils.LOGI(TAG,"La cantidad de visita grupal son "+contadorGrupal);
         return String.valueOf(contadorGrupal);
     }
     public void descargarEspecialesTransportista() {
@@ -649,7 +659,7 @@ public class CargarDescarga {
             };
             rq.add(stringRequest);
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
     }
     public Hashtable<Integer, Hashtable<String, String>> html2HashtableEspecialesTransportista(String texto){
@@ -663,7 +673,7 @@ public class CargarDescarga {
                 g.put("ID_LISTADO", ((!jsonObject.getString("ID_LISTADO").equalsIgnoreCase("null"))?jsonObject.getString("ID_LISTADO"):""));
                 g.put("RUT", ((!jsonObject.getString("RUT").equalsIgnoreCase("null"))?jsonObject.getString("RUT"):""));
                 g.put("NOMBRE", ((!jsonObject.getString("NOMBRE").equalsIgnoreCase("null"))?jsonObject.getString("NOMBRE"):"")); //viene con el apellido
-                g.put("APELLIDO", ""); //g.put("APELLIDO", ((!jsonObject.getString("APELLIDO").toLowerCase().equals("null"))?jsonObject.getString("APELLIDO"):""));
+                g.put("APELLIDO", "");
                 g.put("CARGO", ((!jsonObject.getString("CARGO").equalsIgnoreCase("null"))?jsonObject.getString("CARGO"):""));
                 g.put("EMPRESA", ((!jsonObject.getString("EMPRESA").equalsIgnoreCase("null"))?jsonObject.getString("EMPRESA"):""));
                 g.put("PATENTE", ((!jsonObject.getString("PATENTE").equalsIgnoreCase("null"))?jsonObject.getString("PATENTE"):""));
@@ -672,7 +682,7 @@ public class CargarDescarga {
                 transportistas.put(i, g);
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            LogUtils.LOGE(TAG,e.getMessage());
         }
         return transportistas;
     }
@@ -782,7 +792,9 @@ public class CargarDescarga {
                     response -> {
                         poblarLicencias(html2HashtableLicencias(response));
                         long millis = System.currentTimeMillis();
-                        Log.i(TAG,"Se termina la descarga de datos "+TimeUnit.MILLISECONDS.toSeconds(millis));
+                        Date resultdate = new Date(millis);
+                        String dateString=sdf.format(resultdate);
+                        LogUtils.LOGI(TAG,"Se termina la descarga de datos "+dateString);
                         subirPersonalCapturado();
                     },
                     error -> {
@@ -856,9 +868,10 @@ public class CargarDescarga {
     }
     public void subirPersonalCapturado() {
         SQLiteDatabase db = conn.getReadableDatabase();
-        String[] campos = {"RUT", "NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "TIPO_CAPTURA", "NOMBRE_DISPOSITIVO", "FECHA_CAPTURA", "ID_PERSONA"};
+        String[] campos = {"RUT", "NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "TIPO_CAPTURA", "NOMBRE_DISPOSITIVO", "FECHA_CAPTURA", "ID_PERSONA", "FECHA_CARGA"};
         Cursor cursor = db.query("personalCapturado", campos, null, null, null, null, null);
         String jsonString = "";
+        LogUtils.LOGI(TAG,"la cantidad de personal capturadas encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -870,12 +883,14 @@ public class CargarDescarga {
                     "\"EMPRESA\":" + ((cursor.getString(4)!=null)?"\"" + cursor.getString(4) + "\"":"null") + "," +
                     "\"TIPO_CAPTURA\":" + ((cursor.getString(5)!=null)?"\"" + cursor.getString(5) + "\"":"null") + "," +
                     "\"NOMBRE_DISPOSITIVO\":" + ((cursor.getString(6)!=null)?"\"" + cursor.getString(6) + "\"":"null") + "," +
-                    "\"FECHA_CAPTURA\":" + ((cursor.getString(7)!=null)?"\"" + cursor.getString(7) + "\"":"null") +
+                    "\"FECHA_CAPTURA\":" + ((cursor.getString(7)!=null)?"\"" + cursor.getString(7) + "\"":"null") + "," +
+                    "\"FECHA_CARGA\":" + ((cursor.getString(9)!=null)?"\"" + cursor.getString(9) + "\"":"null") +
                     "}";
         }
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("internoexterno", jsonString);
+        LogUtils.LOGI(TAG, "la url de INEXT es "+CFGwsInternoExterno);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsInternoExterno,
                     response -> {
@@ -885,7 +900,10 @@ public class CargarDescarga {
                             dbW.execSQL(Utilidades.CREAR_TABLA_PERSONAL_CAPTURADO);
                             dbW.close();
                             subirPersonalRechazado();
+                            LogUtils.LOGI(TAG,"Carga correctamente la info");
                         }else{
+                            LogUtils.LOGI(TAG,"Carga incorrecta Error "+response);
+                            terminoTarea(1);
                             sincronizacionUnlock();
                         }
                     },
@@ -910,7 +928,7 @@ public class CargarDescarga {
         String[] campos = {"TIPO_CAPTURA", "RUT", "NOMBRE_DISPOSITIVO", "MOTIVO_RECHAZO","FECHA_CAPTURA"};
         Cursor cursor = db.query("personalRechazado", campos, null, null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de personal rechazado encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de personal rechazado encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -924,7 +942,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("rechazo", jsonString);
-        System.out.println("La URL de rechazo es "+CFGwsIntExtRechazo);
+        LogUtils.LOGI(TAG,"La URL de rechazo es "+CFGwsIntExtRechazo);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsIntExtRechazo,
                     response -> {
@@ -959,7 +977,7 @@ public class CargarDescarga {
         String[] campos = {"id_vehiculo", "patente", "id_empresa", "MOTIVO_RECHAZO","tipo_captura","nombre_dispositivo","FECHA_CAPTURA"};
         Cursor cursor = db.query("vehiculosRechazado", campos, null, null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de vehiculos rechazado encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de vehiculos rechazado encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -973,7 +991,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("rechazo", jsonString);
-        System.out.println("La URL de rechazo es "+CFGwsVehicuRechazo);
+        LogUtils.LOGI(TAG,"La URL de rechazo es "+CFGwsVehicuRechazo);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsVehicuRechazo,
                     response -> {
@@ -1008,7 +1026,7 @@ public class CargarDescarga {
         String[] campos = {"id_grupo", "id_vehiculo", "tipo_captura", "nombre_dispositivo","fecha"};
         Cursor cursor = db.query("vehiculosCapturadas", campos, null, null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de vehiculos encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de vehiculos encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -1023,7 +1041,7 @@ public class CargarDescarga {
         String[] campos2 = {"id", "id_grupo", "id_persona", "tipo", "fecha", "estado_acre"};
         Cursor cursor2 = db.query("pasajerosCapturadas", campos2, null, null, null, null, null);
         String jsonString2 = "";
-        System.out.println("la cantidad de vehiculos detalle encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de vehiculos detalle encontrados es "+cursor.getCount());
         while (cursor2.moveToNext()) {
             jsonString2 += ((!jsonString2.equals(""))?",":"") +
                     "{" +
@@ -1055,7 +1073,7 @@ public class CargarDescarga {
                         }
                     },
                     error -> {
-                        System.out.println("El error es "+error.toString());
+                        LogUtils.LOGE(TAG,"El error es "+error.toString());
                         sincronizacionUnlock();
                     }
             ) {
@@ -1077,7 +1095,7 @@ public class CargarDescarga {
         String[] campos = {"ID_REGISTRO_VISITA", "TIPO_REGISTRO", "NOMBRE_DISPOSITIVO", "FECHA_CAPTURA"};
         Cursor cursor = db.query("visitaTecnicaCap", campos, null, null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de tecnicas es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de tecnicas es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -1091,7 +1109,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("PASE", jsonString);
-        System.out.println("la URL de visita admin es "+CFGwsVisitas);
+        LogUtils.LOGI(TAG,"la URL de visita admin es "+CFGwsVisitas);
         if (cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsVisitas,
                     response -> {
@@ -1107,7 +1125,7 @@ public class CargarDescarga {
                     },
                     error -> {
                         sincronizacionUnlock();
-                        System.out.println(error);
+                        LogUtils.LOGE(TAG,error.toString());
                     }
             ) {
                 @Override
@@ -1128,7 +1146,7 @@ public class CargarDescarga {
         String[] campos = {"ID_TIPO_ACCESO", "ID_PASE", "ID_TIPO_PASE", "nombre_dispositivo", "MOTIVO_RECHAZO","FECHA_CAPTURA"};
         Cursor cursor = db.query("paseVisitaRechazado", campos, null, null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de pase visita encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de pase visita encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -1143,7 +1161,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("rechazo", jsonString);
-        System.out.println("La URL de rechazo es "+CFGwsPaseViRechazo);
+        LogUtils.LOGI(TAG,"La URL de rechazo es "+CFGwsPaseViRechazo);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsPaseViRechazo,
                     response -> {
@@ -1174,7 +1192,6 @@ public class CargarDescarga {
         cursor.close();
     }
     public void subirEspecialesCapturadosGrupal() {
-        System.out.println("entra a subirEspecialesCapturadosGrupal");
         SQLiteDatabase db = conn.getReadableDatabase();
         String[] campos = {"ID_PASE", "ID_LISTADO", "RUT", "NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "PATENTE", "NOMBRE_DISPOSITIVO", "FECHA_CAPTURA"};
         String[] p = {"1"};
@@ -1198,7 +1215,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("especiales", jsonString);
-        System.out.println("URL para capturados grupal es "+CFGwsGrupal);
+        LogUtils.LOGI(TAG,"URL para capturados grupal es "+CFGwsGrupal);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsGrupal,
                     response -> {
@@ -1229,7 +1246,6 @@ public class CargarDescarga {
         cursor.close();
     }
     public void subirEspecialesCapturadosTransportista() {
-        System.out.println("entra a subirEspecialesCapturadosTransportista");
         SQLiteDatabase db = conn.getReadableDatabase();
         String[] campos = {"ID_PASE", "ID_LISTADO", "RUT", "NOMBRE", "APELLIDO", "CARGO", "EMPRESA", "PATENTE", "NOMBRE_DISPOSITIVO", "FECHA_CAPTURA"};
         String[] p = {"4"};
@@ -1253,7 +1269,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("especiales", jsonString);
-        System.out.println("URL para transporte es "+CFGwsTransportista);
+        LogUtils.LOGI(TAG,"URL para transporte es "+CFGwsTransportista);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsTransportista,
                     response -> {
@@ -1347,7 +1363,7 @@ public class CargarDescarga {
         String[] campos = {"tipo_captura", "ID_PASE", "ID_TIPO_PASE", "nombre_dispositivo", "MOTIVO_RECHAZO","FECHA_CAPTURA"};
         Cursor cursor = db.query("especialesRechazado", campos, null, null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de especiales rechazado encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de especiales rechazado encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -1362,7 +1378,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("rechazo", jsonString);
-        System.out.println("La URL de rechazo es "+CFGwsEspeciRechazo);
+        LogUtils.LOGI(TAG,"La URL de rechazo es "+CFGwsEspeciRechazo);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsEspeciRechazo,
                     response -> {
@@ -1397,7 +1413,7 @@ public class CargarDescarga {
         String[] campos = {"RUT", "NOMBRE", "APELLIDO", "ESTADO_CAPTURA", "FECHA_CAPTURA", "NOMBRE_DISPOSITIVO"};
         Cursor cursor = db.query("licenciasCapturadas", campos, null,null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de licencias encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de licencias encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -1412,7 +1428,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("licencias", jsonString);
-        System.out.println("La URL de licencia es "+CFGwsLicencias);
+        LogUtils.LOGI(TAG,"La URL de licencia es "+CFGwsLicencias);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsLicencias,
                     response -> {
@@ -1449,7 +1465,7 @@ public class CargarDescarga {
         String[] campos = {"tipo_captura", "RUT", "LST_LICENCIA", "nombre_dispositivo", "MOTIVO_RECHAZO","FECHA_CAPTURA"};
         Cursor cursor = db.query("licenciasRechazado", campos, null, null, null, null, null);
         String jsonString = "";
-        System.out.println("la cantidad de licencias rechazado encontrados es "+cursor.getCount());
+        LogUtils.LOGI(TAG,"la cantidad de licencias rechazado encontrados es "+cursor.getCount());
         while (cursor.moveToNext()) {
             jsonString += ((!jsonString.equals(""))?",":"") +
                     "{" +
@@ -1464,7 +1480,7 @@ public class CargarDescarga {
         jsonString = "[" + jsonString + "]";
         Map<String, String> parametros = new Hashtable<String, String>();
         parametros.put("rechazo", jsonString);
-        Log.i(TAG,"La URL de rechazo es "+CFGwsLicenciaRechazo);
+        LogUtils.LOGI(TAG,"La URL de rechazo es "+CFGwsLicenciaRechazo);
         if(cursor.getCount()>0){
             StringRequest stringRequest = new StringRequest(Request.Method.POST, CFGwsLicenciaRechazo,
                     response -> {
@@ -1490,9 +1506,7 @@ public class CargarDescarga {
         }else{
             sincronizacionUnlock();
         }
-        long millis = System.currentTimeMillis();
-        Log.i(TAG,"se termina el proceso de cargas asincronicas " +TimeUnit.MILLISECONDS.toSeconds(millis));
-        terminoTarea();
+        terminoTarea(0);
         db.close();
         cursor.close();
     }

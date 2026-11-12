@@ -14,8 +14,9 @@
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="150sp"
+            android:layout_height="200sp"
             android:layout_marginHorizontal="30sp"
+            android:paddingVertical="20sp"
             android:background="@drawable/fondo_dialogo2"
             app:layout_constraintBottom_toBottomOf="@id/fondoOscuro"
             app:layout_constraintTop_toTopOf="@id/fondoOscuro"
@@ -28,7 +29,6 @@
                 android:text="Espere"
                 android:textSize="25sp"
                 android:paddingStart="20sp"
-                android:paddingTop="20sp"
                 app:layout_constraintTop_toTopOf="parent"
                 />
             <TextView
@@ -38,23 +38,26 @@
                 android:text="Actualizando..."
                 android:textSize="20sp"
                 android:paddingStart="20sp"
-                android:paddingTop="20sp"
                 app:layout_constraintTop_toBottomOf="@id/tituloDialog"
                 />
 
             <Button
                 android:id="@+id/butonDialog"
-                android:layout_width="300sp"
+                android:layout_width="match_parent"
                 android:layout_height="48sp"
                 android:text="Cerrar"
+                android:background="@drawable/boton_cerrar"
+                android:layout_marginHorizontal="30sp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/textoDialog"
                 app:layout_constraintBottom_toBottomOf="parent"
                 />
             <ProgressBar
                 android:id="@+id/progressDialgo"
                 android:layout_width="match_parent"
                 android:layout_height="48sp"
+                app:layout_constraintTop_toBottomOf="@id/textoDialog"
                 app:layout_constraintBottom_toBottomOf="parent"
                 />
 
@@ -128,25 +131,59 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView" />
     <!--Sincronizar--><Button
-        android:id="@+id/btnSincronizar"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/ic_baseline_sync_24"
-        android:onClick="onclickSincronizar"
-        app:backgroundTint="@color/azulBotonIngresos"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnIngresoEspeciales" />
+    android:id="@+id/btnSyncDownloadMain"
+    android:layout_width="60dp"
+    android:layout_height="60dp"
+    android:layout_marginTop="8dp"
+    android:background="@drawable/outline_arrow_downward_alt_24"
+    android:onClick="onclickSyncDownloadMain"
+    app:backgroundTint="@color/rojoBotonSalidas"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toStartOf="@+id/btnSyncLoadMain"
+    app:layout_constraintTop_toBottomOf="@+id/btnIngresoEspeciales" />
+    <!--Sincronizar--><Button
+    android:id="@+id/btnSyncLoadMain"
+    android:layout_width="60dp"
+    android:layout_height="60dp"
+    android:layout_marginTop="8dp"
+    android:background="@drawable/upload_icon"
+    android:onClick="onclickSyncLoadMain"
+    app:backgroundTint="@color/green_success"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toEndOf="@+id/btnSyncDownloadMain"
+    app:layout_constraintTop_toBottomOf="@+id/btnIngresoEspeciales" />
     <TextView
-        android:id="@+id/lblActualizarInformacion"
+        android:id="@+id/lblBajarInformacion"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="ACTUALIZAR INFORMACIÓN"
+        android:text="BAJAR INFORMACIÓN"
+        android:textColor="@color/black"
+        app:layout_constraintEnd_toStartOf="@+id/lblSubirInformacion"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnSyncLoadMain" />
+    <TextView
+        android:id="@+id/lblSubirInformacion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SUBIR INFORMACIÓN"
         android:textColor="@color/black"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/lblBajarInformacion"
+        app:layout_constraintTop_toBottomOf="@+id/btnSyncLoadMain" />
+
+    <TextView
+        android:id="@+id/lblInfoCarga"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ultima Actualización"
+        android:textColor="@color/black"
+        android:layout_marginTop="15sp"
+        android:textAlignment="center"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnSincronizar" />
+        app:layout_constraintTop_toBottomOf="@+id/lblSubirInformacion" />
     <!--Ingresos--><Button
         android:id="@+id/btnIngresos"
         android:layout_width="match_parent"
@@ -339,6 +376,19 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
+
+    <TextView
+        android:id="@+id/lblTextoExplica"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="La aplicación realiza la actualización de forma automatica, pero tambien se puede forzar el proceso en caso de ser requerido."
+        android:textColor="@color/black"
+        android:textSize="13sp"
+        android:textAlignment="center"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnPanelCentral" />
+
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

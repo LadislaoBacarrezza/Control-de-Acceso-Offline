@@ -15,9 +15,10 @@
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="150sp"
+            android:layout_height="200sp"
             android:layout_marginHorizontal="30sp"
-            android:background="@color/grisEscanearOdigitarRut"
+            android:paddingVertical="20sp"
+            android:background="@drawable/fondo_dialogo2"
             app:layout_constraintBottom_toBottomOf="@id/fondoOscuro"
             app:layout_constraintTop_toTopOf="@id/fondoOscuro"
             android:orientation="vertical"
@@ -29,7 +30,6 @@
                 android:text="Espere"
                 android:textSize="25sp"
                 android:paddingStart="20sp"
-                android:paddingTop="20sp"
                 app:layout_constraintTop_toTopOf="parent"
                 />
             <TextView
@@ -39,7 +39,6 @@
                 android:text="Actualizando..."
                 android:textSize="20sp"
                 android:paddingStart="20sp"
-                android:paddingTop="20sp"
                 app:layout_constraintTop_toBottomOf="@id/tituloDialog"
                 />
 
@@ -48,19 +47,26 @@
                 android:layout_width="match_parent"
                 android:layout_height="48sp"
                 android:text="Cerrar"
+                android:background="@drawable/boton_cerrar"
+                android:layout_marginHorizontal="30sp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/textoDialog"
                 app:layout_constraintBottom_toBottomOf="parent"
                 />
             <ProgressBar
                 android:id="@+id/progressDialgo"
                 android:layout_width="match_parent"
                 android:layout_height="48sp"
+                app:layout_constraintTop_toBottomOf="@id/textoDialog"
                 app:layout_constraintBottom_toBottomOf="parent"
                 />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!--Cuadro de dialogo vehiculos--><androidx.constraintlayout.widget.ConstraintLayout
+    <!--Cuadro de dialogo vehiculos-->
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintDialogo"
         android:layout_width="match_parent"
         android:layout_height="200sp"
@@ -200,17 +206,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/lblTitulo" />
 
-    <Button
-        android:id="@+id/btnSincronizar"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_marginTop="10dp"
-        android:background="@drawable/ic_baseline_sync_24"
-        android:onClick="onclickSincronizar"
-        app:backgroundTint="@color/azulBotonIngresos"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView4" />
     <TextView
         android:id="@+id/lblNombre"
         android:layout_width="match_parent"
@@ -226,6 +221,18 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/lblResultado" />
+    <TextView
+        android:id="@+id/lblInfoCarga"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ultima Actualización"
+        android:textColor="@color/black"
+        android:layout_marginTop="15sp"
+        android:textAlignment="center"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnTeclado" />
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintImagenVehiculo"
         android:layout_width="wrap_content"
@@ -568,10 +575,10 @@
         android:background="@drawable/ic_baseline_camera_alt_24"
         android:onClick="onclickCamara"
         app:backgroundTint="@color/azulBotonIngresos"
-        app:layout_constraintEnd_toStartOf="@+id/btnSincronizar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnTeclado"
         app:layout_constraintTop_toBottomOf="@+id/textView4" />
     <!--Teclado-->
-    <!--Volver-->
     <Button
         android:id="@+id/btnTeclado"
         android:layout_width="70dp"
@@ -582,8 +589,10 @@
         android:background="@drawable/ic_baseline_keyboard_24"
         android:onClick="onclickTeclado"
         app:backgroundTint="@color/azulBotonIngresos"
-        app:layout_constraintStart_toEndOf="@+id/btnSincronizar"
+        app:layout_constraintStart_toEndOf="@+id/btnCamara"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView4" />
+    <!--Volver-->
 
     <Button
         android:id="@+id/btnPanelCerrarGrupo"

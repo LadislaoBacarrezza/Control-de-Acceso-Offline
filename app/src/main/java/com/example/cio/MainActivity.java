@@ -1,41 +1,41 @@
 package com.example.cio;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
-import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
-import androidx.work.WorkRequest;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.media.MediaPlayer;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
 import com.example.cio.WorkManager.CargaAsincrona;
+import com.example.cio.WorkManager.UploadAsincrona;
+import com.example.cio.utilidades.Cargar;
 import com.example.cio.utilidades.DataConverter;
+import com.example.cio.utilidades.Descarga;
+import com.example.cio.utilidades.LogUtils;
 import com.example.cio.utilidades.Utilidades;
 
 import java.util.concurrent.TimeUnit;
@@ -50,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
     public static ProgressBar progressDialogo;
 
     public static Button buttonDialogo;
+
+    public static TextView fechaCarga;
     ImageView imgLogo;
     ImageView imgLogo2;
     TextView lblFecha;
@@ -67,7 +69,8 @@ public class MainActivity extends AppCompatActivity {
     Button btnLicencias;
     Button btnPanelCentral;
     Button btnSincronizar;
-    TextView lblActualizarInformacion;
+    TextView lblBajarInformacion;
+    TextView lblSubirInformacion;
 
     CountDownTimer cdtLogo = null;
     boolean cdtCancel = false;
@@ -113,11 +116,8 @@ public class MainActivity extends AppCompatActivity {
     RequestQueue rq = null;
 
     MediaPlayer mP = null;
+
     final  static String SYNC_DATA_WORK_NAME = "SINCRONIZAR_AUTOMATIC";
-    WorkRequest uploadWorkRequest =
-            new OneTimeWorkRequest.Builder(CargaAsincrona.class)
-                    .setInputData(createInputDataForClass())
-                    .build();
 
     String versiontxt = BuildConfig.VERSION_NAME;
 
@@ -131,13 +131,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        conn = new ConexionSQLiteHelper(this, "DB_CIO", null, 1);
+        conn = new ConexionSQLiteHelper(this, "DB_CIO", null, 3);
         dialogo = findViewById(R.id.fondoOscuro);
         tituloDialogo = findViewById(R.id.tituloDialog);
         textoDialogo = findViewById(R.id.textoDialog);
         progressDialogo = findViewById(R.id.progressDialgo);
         buttonDialogo = findViewById(R.id.butonDialog);
         version = findViewById(R.id.version);
+        fechaCarga = findViewById(R.id.lblInfoCarga);
         imgLogo = findViewById(R.id.imgLogo);
         imgLogo2 = findViewById(R.id.imgLogo2);
         lblFecha = findViewById(R.id.lblFecha);
@@ -152,8 +153,9 @@ public class MainActivity extends AppCompatActivity {
         btnEmergencia = findViewById(R.id.btnEmergencia);
         btnLicencias = findViewById(R.id.btnLicencias);
         btnPanelCentral = findViewById(R.id.btnPanelCentral);
-        btnSincronizar = findViewById(R.id.btnSincronizar);
-        lblActualizarInformacion = findViewById(R.id.lblActualizarInformacion);
+        btnSincronizar = findViewById(R.id.btnSyncDownloadMain);
+        lblBajarInformacion = findViewById(R.id.lblBajarInformacion);
+        lblSubirInformacion = findViewById(R.id.lblSubirInformacion);
 
         btnVisitas.setVisibility(View.INVISIBLE);
         btnTecnica.setVisibility(View.INVISIBLE);
@@ -306,16 +308,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 200);
-        Log.i(TAG,"El tiempo programado es "+CFGtiempo);
+        LogUtils.LOGI(TAG,"El tiempo programado es "+CFGtiempo);
         if(CFGtiempo != null){
             PeriodicWorkRequest periodicSyncDataWork =
                     new PeriodicWorkRequest.Builder(
                             CargaAsincrona.class,
                             Long.parseLong(CFGtiempo),
                             TimeUnit.MILLISECONDS)
+                            .addTag("SINCRONIZARBD")
                             .setInputData(createInputDataForClass())
                             .build();
-            WorkManager.getInstance(getApplicationContext()).cancelAllWork();
             WorkManager
                     .getInstance(getApplicationContext())
                     .enqueueUniquePeriodicWork(
@@ -324,16 +326,14 @@ public class MainActivity extends AppCompatActivity {
                             periodicSyncDataWork
                     );
         }
-        buttonDialogo.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                dialogo.setVisibility(View.INVISIBLE);
-            }
-        });
+        buttonDialogo.setOnClickListener(view -> dialogo.setVisibility(View.INVISIBLE));
 
     }
-    @Override public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-        if(requestCode == 200) if(!(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)) Toast.makeText(getApplicationContext(), "Falta permiso cámara", Toast.LENGTH_SHORT).show();
+    @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if(requestCode == 200)
+            if(!(grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED))
+                Toast.makeText(getApplicationContext(), "Falta permiso cámara", Toast.LENGTH_SHORT).show();
     }
     @Override protected void onResume() {
         lblFecha.setText(Utilidades.fechaHoy());
@@ -347,7 +347,26 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void onclickSincronizar(View view) {
+    public void onclickSyncDownloadMain(View view) {
+        Context applicationContext = getApplicationContext();
+        ConexionSQLiteHelper conn;
+        conn = new ConexionSQLiteHelper(getApplicationContext(), "DB_CIO", null, 3);
+        new Descarga(conn,applicationContext,1);
+    }
+
+    public void onclickSyncLoadMain(View view) {
+        Context applicationContext = getApplicationContext();
+        ConexionSQLiteHelper conn;
+        conn = new ConexionSQLiteHelper(getApplicationContext(), "DB_CIO", null, 3);
+        new Cargar(conn,applicationContext,1);
+    }
+
+    public void onclickSincronizarMain(View view) {
+        OneTimeWorkRequest uploadWorkRequest =
+                new OneTimeWorkRequest.Builder(CargaAsincrona.class)
+                        .setInputData(createInputDataForClass())
+                        .build();
+        WorkManager.getInstance(getApplicationContext()).cancelAllWorkByTag("SINCRONIZARBD");
         WorkManager
                 .getInstance(getApplicationContext())
                 .enqueue(uploadWorkRequest);
@@ -357,44 +376,37 @@ public class MainActivity extends AppCompatActivity {
     public void onclickBtnIngresos(View view) {
         tipoPase="ingresos"+tipoPase;
         if(esVehiculo){
-            Log.i(TAG,"la variable vehiculo es "+esVehiculo);
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             mP = MediaPlayer.create(getApplicationContext(), R.raw.ingresovehicular);
             mP.start();
             esVehiculo = false;
             btnVehiculos.setVisibility(View.VISIBLE);
             btnEspeciales.setVisibility(View.VISIBLE);
-            lblActualizarInformacion.setVisibility(View.VISIBLE);
+            lblSubirInformacion.setVisibility(View.VISIBLE);
             btnSincronizar.setVisibility(View.VISIBLE);
             btnLicencias.setVisibility(View.VISIBLE);
-            lblActualizarInformacion.setVisibility(View.VISIBLE);
+            lblBajarInformacion.setVisibility(View.VISIBLE);
             btnPanelCentral.setVisibility(View.INVISIBLE);
             Intent intent = new Intent(MainActivity.this, Control.class);
             intent.putExtra("destino",tipoPase);
+            intent.putExtra("carga",fechaCarga.getText());
             tipoPase = "";
             startActivity(intent);
         }else{
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             mP = MediaPlayer.create(getApplicationContext(), R.raw.registrandoacceso);
             mP.start();
             Intent intent = new Intent(MainActivity.this, Control.class);
             intent.putExtra("destino",tipoPase);
+            intent.putExtra("carga",fechaCarga.getText());
             tipoPase = tipoPase.replace("ingresos","");
             startActivity(intent);
         }
@@ -402,38 +414,30 @@ public class MainActivity extends AppCompatActivity {
     public void onclickBtnSalidas(View view) {
         tipoPase="salidas"+tipoPase;
         if(esVehiculo){
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             mP = MediaPlayer.create(getApplicationContext(), R.raw.salidavehicular);
             mP.start();
             esVehiculo = false;
             btnVehiculos.setVisibility(View.VISIBLE);
             btnEspeciales.setVisibility(View.VISIBLE);
-            lblActualizarInformacion.setVisibility(View.VISIBLE);
+            lblSubirInformacion.setVisibility(View.VISIBLE);
             btnSincronizar.setVisibility(View.VISIBLE);
             btnLicencias.setVisibility(View.VISIBLE);
-            lblActualizarInformacion.setVisibility(View.VISIBLE);
+            lblBajarInformacion.setVisibility(View.VISIBLE);
             Intent intent = new Intent(MainActivity.this, Control.class);
             intent.putExtra("destino",tipoPase);
             tipoPase = "";
             startActivity(intent);
         }else{
-            try {
+            if(mP!=null){
                 mP.stop();
-            }catch (Exception e){ }
-            try {
                 mP.release();
-            }catch (Exception e){ }
-            try {
                 mP = null;
-            }catch (Exception e){ }
+            }
             mP = MediaPlayer.create(getApplicationContext(), R.raw.registrandosalida);
             mP.start();
             Intent intent = new Intent(MainActivity.this, Control.class);
@@ -449,7 +453,8 @@ public class MainActivity extends AppCompatActivity {
         btnVehiculos.setVisibility(View.INVISIBLE);
         btnEspeciales.setVisibility(View.INVISIBLE);
         btnSincronizar.setVisibility(View.VISIBLE);
-        lblActualizarInformacion.setVisibility(View.VISIBLE);
+        lblSubirInformacion.setVisibility(View.VISIBLE);
+        lblBajarInformacion.setVisibility(View.VISIBLE);
         btnPanelCentral.setVisibility(View.VISIBLE);
     }
     public void onclickEspeciales(View view) {
@@ -486,7 +491,8 @@ public class MainActivity extends AppCompatActivity {
         btnVehiculos.setVisibility(View.INVISIBLE);
         btnLicencias.setVisibility(View.INVISIBLE);
         btnEspeciales.setVisibility(View.INVISIBLE);
-        lblActualizarInformacion.setVisibility(View.INVISIBLE);
+        lblSubirInformacion.setVisibility(View.INVISIBLE);
+        lblBajarInformacion.setVisibility(View.INVISIBLE);
         btnSincronizar.setVisibility(View.INVISIBLE);
     }
     public void onclickBtnVisitas(View view) {
@@ -494,8 +500,8 @@ public class MainActivity extends AppCompatActivity {
         btnIngresos.setVisibility(View.VISIBLE);
         btnSalidas.setVisibility(View.VISIBLE);
         btnSincronizar.setVisibility(View.VISIBLE);
-        lblActualizarInformacion.setVisibility(View.VISIBLE);
-
+        lblSubirInformacion.setVisibility(View.VISIBLE);
+        lblBajarInformacion.setVisibility(View.VISIBLE);
         btnVisitas.setVisibility(View.INVISIBLE);
         btnTecnica.setVisibility(View.INVISIBLE);
         btnGrupal.setVisibility(View.INVISIBLE);
@@ -507,8 +513,8 @@ public class MainActivity extends AppCompatActivity {
         btnIngresos.setVisibility(View.VISIBLE);
         btnSalidas.setVisibility(View.VISIBLE);
         btnSincronizar.setVisibility(View.VISIBLE);
-        lblActualizarInformacion.setVisibility(View.VISIBLE);
-
+        lblSubirInformacion.setVisibility(View.VISIBLE);
+        lblBajarInformacion.setVisibility(View.VISIBLE);
         btnVisitas.setVisibility(View.INVISIBLE);
         btnTecnica.setVisibility(View.INVISIBLE);
         btnGrupal.setVisibility(View.INVISIBLE);
@@ -520,8 +526,8 @@ public class MainActivity extends AppCompatActivity {
         btnIngresos.setVisibility(View.VISIBLE);
         btnSalidas.setVisibility(View.VISIBLE);
         btnSincronizar.setVisibility(View.VISIBLE);
-        lblActualizarInformacion.setVisibility(View.VISIBLE);
-
+        lblSubirInformacion.setVisibility(View.VISIBLE);
+        lblBajarInformacion.setVisibility(View.VISIBLE);
         btnVisitas.setVisibility(View.INVISIBLE);
         btnTecnica.setVisibility(View.INVISIBLE);
         btnGrupal.setVisibility(View.INVISIBLE);
@@ -533,8 +539,8 @@ public class MainActivity extends AppCompatActivity {
         btnIngresos.setVisibility(View.VISIBLE);
         btnSalidas.setVisibility(View.VISIBLE);
         btnSincronizar.setVisibility(View.VISIBLE);
-        lblActualizarInformacion.setVisibility(View.VISIBLE);
-
+        lblSubirInformacion.setVisibility(View.VISIBLE);
+        lblBajarInformacion.setVisibility(View.VISIBLE);
         btnVisitas.setVisibility(View.INVISIBLE);
         btnTecnica.setVisibility(View.INVISIBLE);
         btnGrupal.setVisibility(View.INVISIBLE);
@@ -542,15 +548,11 @@ public class MainActivity extends AppCompatActivity {
         btnEmergencia.setVisibility(View.INVISIBLE);
     }
     public void onclickBtnEmergencia(View view) {
-        try {
+        if(mP!=null){
             mP.stop();
-        }catch (Exception e){ }
-        try {
             mP.release();
-        }catch (Exception e){ }
-        try {
             mP = null;
-        }catch (Exception e){ }
+        }
         mP = MediaPlayer.create(getApplicationContext(), R.raw.registrandoemergencia);
         mP.start();
         Intent intent = new Intent(MainActivity.this, Control.class);
@@ -558,15 +560,11 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
     public void onclickBtnLicencias(View view) {
-        try {
+        if(mP!=null){
             mP.stop();
-        }catch (Exception e){ }
-        try {
             mP.release();
-        }catch (Exception e){ }
-        try {
             mP = null;
-        }catch (Exception e){ }
+        }
         mP = MediaPlayer.create(getApplicationContext(), R.raw.registrandolicencia);
         mP.start();
         Intent intent = new Intent(MainActivity.this, Control.class);
@@ -575,7 +573,7 @@ public class MainActivity extends AppCompatActivity {
     }
     public void onclickPanelCentral(View view) {
         tipoPase="";
-        Log.i(TAG,"El tipo de comtrol es "+tipoPase);
+        LogUtils.LOGI(TAG,"El tipo de comtrol es "+tipoPase);
         if(CFGhabilitar_btnIngresos.equals("1")){
             btnIngresos.setVisibility(View.VISIBLE);
         } else {
@@ -603,8 +601,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         btnSincronizar.setVisibility(View.VISIBLE);
-        lblActualizarInformacion.setVisibility(View.VISIBLE);
-
+        lblSubirInformacion.setVisibility(View.VISIBLE);
+        lblBajarInformacion.setVisibility(View.VISIBLE);
         btnVisitas.setVisibility(View.INVISIBLE);
         btnTecnica.setVisibility(View.INVISIBLE);
         btnGrupal.setVisibility(View.INVISIBLE);
